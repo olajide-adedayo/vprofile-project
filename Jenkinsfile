@@ -4,7 +4,7 @@ pipeline {
 	
 	tools {
 	jdk "JDK 17"	
-        maven "MAVEN 3.9.14"
+        maven "Maven 3.9.14"
     }
 	
     environment {
