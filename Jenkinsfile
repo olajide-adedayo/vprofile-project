@@ -1,19 +1,30 @@
+def COLOR_MAP = [
+    'SUCCESS': 'good',
+    'FAILURE': 'danger',
+]
+
 pipeline {
     
 	agent any
-/*	
+	
 	tools {
-        maven "maven3"
+	jdk "JDK 17"	
+        maven "Maven 3.9.14"
     }
-*/	
+	
     environment {
         NEXUS_VERSION = "nexus3"
         NEXUS_PROTOCOL = "http"
-        NEXUS_URL = "172.31.40.209:8081"
-        NEXUS_REPOSITORY = "vprofile-release"
-	NEXUS_REPO_ID    = "vprofile-release"
-        NEXUS_CREDENTIAL_ID = "nexuslogin"
+        NEXUS_URL = "172.31.24.227:8081"
+        NEXUS_REPOSITORY = "vprofile-repo"
+	NEXUS_REPO_ID    = "vprofile-repo"
+        NEXUS_CREDENTIAL_ID = "nexus-login"
         ARTVERSION = "${env.BUILD_ID}"
+
+		registryCredential = 'ecr:us-east-1:awscreds'
+appRegistry = "790762402661.dkr.ecr.us-east-1.amazonaws.com/vprofileappimg"
+vprofileRegistry = "https://790762402661.dkr.ecr.us-east-1.amazonaws.com"
+		
     }
 	
     stages{
@@ -56,11 +67,11 @@ pipeline {
         stage('CODE ANALYSIS with SONARQUBE') {
           
 		  environment {
-             scannerHome = tool 'sonarscanner4'
+             scannerHome = tool 'sonar-scanner'
           }
 
           steps {
-            withSonarQubeEnv('sonar-pro') {
+            withSonarQubeEnv('Sonar Server') {
                sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
                    -Dsonar.projectName=vprofile-repo \
                    -Dsonar.projectVersion=1.0 \
@@ -113,9 +124,44 @@ pipeline {
                 }
             }
         }
+		stage('Build App Image') {
+    steps {
+        script {
+            dockerImage = docker.build(
+                appRegistry + ":${env.BUILD_NUMBER}",
+                "./Docker-files/app/multistage/"
+            )
+        }
+    }
+}
+
+stage('Upload App Image') {
+    steps {
+        script {
+            docker.withRegistry(vprofileRegistry, registryCredential) {
+                dockerImage.push("${env.BUILD_NUMBER}")
+                dockerImage.push("latest")
+            }
+        }
+    }
+}
 
 
     }
 
+    post {
+        always {
+            echo 'Slack Notifications.'
+
+            slackSend(
+                channel: '#devops-cicd',
+                color: COLOR_MAP[currentBuild.currentResult],
+                message: "${currentBuild.currentResult}: Job ${env.JOB_NAME} build #${env.BUILD_NUMBER}\nMore info: ${env.BUILD_URL}"
+            )
+        }
+    }
 
 }
+
+
+
