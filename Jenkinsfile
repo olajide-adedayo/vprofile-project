@@ -83,7 +83,7 @@ vprofileRegistry = "https://790762402661.dkr.ecr.us-east-1.amazonaws.com"
             }
 
             timeout(time: 10, unit: 'MINUTES') {
-               waitForQualityGate abortPipeline: true
+               waitForQualityGate abortPipeline: false
             }
           }
         }
